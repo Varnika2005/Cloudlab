@@ -1,0 +1,240 @@
+sudo apt install openssh-server openssh-client -y
+ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+chmod 0600 ~/.ssh/authorized_keys
+ssh localhost
+tar xzf hadoop-3.4.0.tar.gz
+nano .bashrc
+
+1. Edit the .bashrc shell configuration file using a text editor of your choice (we will use nano):
+
+nano .bashrc
+Copy
+2. Define the Hadoop environment variables by adding the following content to the end of the file:
+
+#Hadoop Related Options
+export HADOOP_HOME=/home/hdoop/hadoop-3.4.0
+export HADOOP_INSTALL=$HADOOP_HOME
+export HADOOP_MAPRED_HOME=$HADOOP_HOME
+export HADOOP_COMMON_HOME=$HADOOP_HOME
+export HADOOP_HDFS_HOME=$HADOOP_HOME
+export YARN_HOME=$HADOOP_HOME
+export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
+export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
+Copy
+3. Once you add the variables, save and exit the .bashrc file.
+
+Edit .bashrc file to add Hadoop variables.
+4. Run the command below to apply the changes to the current running environment:
+
+source ~/.bashrc
+nano $HADOOP_HOME/etc/hadoop/hadoop-env.sh
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+which javac
+readlink -f /usr/bin/javac
+1. Open the core-site.xml file in a text editor:
+
+nano $HADOOP_HOME/etc/hadoop/core-site.xml
+Copy
+2. Add the following configuration to override the default values for the temporary directory and add your HDFS URL to replace the default local file system setting:
+
+<configuration>
+<property>
+  <name>hadoop.tmp.dir</name>
+  <value>/home/hdoop/tmpdata</value>
+</property>
+<property>
+  <name>fs.default.name</name>
+  <value>hdfs://127.0.0.1:9000</value>
+</property>
+</configuration>
+1. Use the following command to open the hdfs-site.xml file for editing:
+
+sudo nano $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+Copy
+2. Add the following configuration to the file and, if needed, adjust the NameNode and DataNode directories to your custom locations:
+
+<configuration>
+<property>
+  <name>dfs.data.dir</name>
+  <value>/home/hdoop/dfsdata/namenode</value>
+</property>
+<property>
+  <name>dfs.data.dir</name>
+  <value>/home/hdoop/dfsdata/datanode</value>
+</property>
+<property>
+  <name>dfs.replication</name>
+  <value>1</value>
+</property>
+</configuration>
+Copy
+If necessary, create the specific directories you defined for the dfs.data.dir value.
+1. Use the following command to access the mapred-site.xml file and define MapReduce values:
+
+sudo nano $HADOOP_HOME/etc/hadoop/mapred-site.xml
+Copy
+2. Add the following configuration to change the default MapReduce framework name value to yarn:
+
+<configuration> 
+<property> 
+  <name>mapreduce.framework.name</name> 
+  <value>yarn</value> 
+</property> 
+</configuration>
+1. Open the yarn-site.xml file in a text editor:
+
+nano $HADOOP_HOME/etc/hadoop/yarn-site.xml
+Copy
+2. Append the following configuration to the file:
+
+<configuration>
+<property>
+  <name>yarn.nodemanager.aux-services</name>
+  <value>mapreduce_shuffle</value>
+</property>
+<property>
+  <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+  <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+</property>
+<property>
+  <name>yarn.resourcemanager.hostname</name>
+  <value>127.0.0.1</value>
+</property>
+<property>
+  <name>yarn.acl.enable</name>
+  <value>0</value>
+</property>
+<property>
+  <name>yarn.nodemanager.env-whitelist</name>   
+  <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PERPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
+</property>
+</configuration>
+-------------------------------------------------
+It is important to format the NameNode before starting Hadoop services for the first time:
+
+hdfs namenode -format
+
+1. Navigate to the hadoop-3.4.0/sbin directory and execute the following command to start the NameNode and DataNode:
+
+./start-dfs.sh
+
+The system takes a few moments to initiate the necessary nodes.
+
+Starting NameNodes and DataNodes on Hadoop.
+2. Once the namenode, datanodes, and secondary namenode are up and running, start the YARN resource and nodemanagers by typing:
+
+./start-yarn.sh
+
+As with the previous command, the output informs you that the processes are starting.
+
+Start YARN manager on Hadoop.
+3. Run the following command to check if all the daemons are active and running as Java processes:
+
+jps
+
+🧩 Step 1: Verify Hadoop Installation
+
+Open a terminal and check:
+
+hadoop version
+
+
+If Hadoop is installed, you’ll see the version output.
+If not, install it first (I can guide you if needed).
+
+🧾 Step 2: Prepare Input Data
+
+Create a sample text file:
+
+mkdir ~/hadoop-wordcount
+cd ~/hadoop-wordcount
+echo "Hadoop is fun Hadoop is powerful" > input.txt
+
+🧠 Step 3: Write Mapper and Reducer in Python
+🧩 mapper.py
+#!/usr/bin/env python3
+import sys
+
+for line in sys.stdin:
+    words = line.strip().split()
+    for word in words:
+        print(f"{word}\t1")
+
+🧩 reducer.py
+#!/usr/bin/env python3
+import sys
+
+current_word = None
+count = 0
+
+for line in sys.stdin:
+    word, value = line.strip().split('\t', 1)
+    value = int(value)
+
+    if current_word == word:
+        count += value
+    else:
+        if current_word:
+            print(f"{current_word}\t{count}")
+        current_word = word
+        count = value
+
+if current_word == word:
+    print(f"{current_word}\t{count}")
+
+
+Make both executable:
+
+chmod +x mapper.py reducer.py
+
+📦 Step 4: Put Input File into HDFS
+
+Start Hadoop (if not already):
+
+start-dfs.sh
+start-yarn.sh
+
+
+Then:
+
+hdfs dfs -mkdir -p /user/hduser/input
+hdfs dfs -put input.txt /user/hduser/input/
+
+
+(Replace hduser with your Hadoop username if different.)
+
+⚙️ Step 5: Run Hadoop Streaming Job
+
+Run this command:
+
+hadoop jar /usr/local/hadoop/share/hadoop/tools/lib/hadoop-streaming*.jar \
+    -input /user/hduser/input/input.txt \
+    -output /user/hduser/output \
+    -mapper mapper.py \
+    -reducer reducer.py \
+    -file mapper.py \
+    -file reducer.py
+
+
+The -file option ensures your Python scripts are sent to the cluster.
+
+📤 Step 6: View Output
+
+After successful execution:
+
+hdfs dfs -cat /user/hduser/output/part-00000
+
+
+You should see:
+
+Hadoop  2
+fun     1
+is      2
+powerful 1
+
+🧹 Step 7: Clean Up (Optional)
+hdfs dfs -rm -r /user/hduser/output
+
+
