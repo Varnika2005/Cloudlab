@@ -1,0 +1,108 @@
+SPARK*
+ STEP 3: (Optional but Recommended) Install Python
+
+Spark supports PySpark, so let’s install Python and pip.
+
+sudo apt install python3 python3-pip -y
+
+
+Verify:
+
+python3 --version
+pip3 --version
+ For example (as of 2025, Spark 3.5.1 with Hadoop 3):
+
+wget https://downloads.apache.org/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+
+
+Then extract:
+
+tar -xvzf spark-3.5.1-bin-hadoop3.tgz
+sudo mv spark-3.5.1-bin-hadoop3 /usr/local/spark
+
+ 🧭 STEP 5: Set Environment Variables
+
+Edit your .bashrc:
+
+nano ~/.bashrc
+
+
+Add these lines at the bottom:
+
+# Java
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+# Spark
+export SPARK_HOME=/usr/local/spark
+export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+
+# (Optional) Hadoop integration
+export HADOOP_HOME=/usr/local/hadoop
+export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
+
+
+Save and apply:
+
+source ~/.bashrc
+
+ spark-shell
+
+ https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+
+ wget https://mirror.lyrahosting.com/apache/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+
+
+ 🧠 Python WordCount using PySpark
+🔹 Code (wordcount.py)
+from pyspark import SparkContext, SparkConf
+
+def main():
+    # Initialize Spark
+    conf = SparkConf().setAppName("WordCount").setMaster("local[*]")
+    sc = SparkContext(conf=conf)
+
+    # Input file path (can be local or HDFS)
+    input_path = "input.txt"
+    output_path = "output_wordcount"
+
+    # Read the input file
+    text_file = sc.textFile(input_path)
+
+    # Split lines into words
+    words = text_file.flatMap(lambda line: line.split())
+
+    # Map each word to (word, 1)
+    word_pairs = words.map(lambda word: (word, 1))
+
+    # Reduce by key (sum up the counts)
+    word_counts = word_pairs.reduceByKey(lambda a, b: a + b)
+
+    # Save the results
+    word_counts.saveAsTextFile(output_path)
+
+    # Optional: Print results to console
+    for word, count in word_counts.collect():
+        print(f"{word}: {count}")
+
+    sc.stop()
+
+if __name__ == "__main__":
+    main()
+
+⚙️ How to Run It
+1️⃣ Create an input file:
+echo "hello world hello spark" > input.txt
+
+2️⃣ Run the program:
+spark-submit wordcount.py
+
+3️⃣ Check the results:
+cat output_wordcount/part-00000
+
+
+You’ll see something like:
+
+('hello', 2)
+('world', 1)
+('spark', 1)
